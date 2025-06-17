@@ -3,7 +3,7 @@ package photonMelodyAdapter
 import (
 	"fmt"
 	"github.com/olahol/melody"
-	"github.com/smtdfc/photon/pkg/base"
+	"github.com/smtdfc/photon"
 	"net/http"
 )
 
