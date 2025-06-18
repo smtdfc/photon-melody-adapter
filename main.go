@@ -62,7 +62,7 @@ func (m *MelodyAdapter) On(event string, handler photon.SocketEventHandler) {
 
 func (m *MelodyAdapter) Emit(event string, data []byte) error {
 	if event != "message" {
-		return fmt.Errorf("MelodyAdapter chỉ hỗ trợ event 'message'")
+		return fmt.Errorf("")
 	}
 	return m.Instance.Broadcast(data)
 }
