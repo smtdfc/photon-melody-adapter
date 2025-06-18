@@ -1,16 +1,20 @@
 package photonMelodyAdapter
 
 import (
-	"fmt"
+	"github.com/google/uuid"
 	"github.com/olahol/melody"
 	"github.com/smtdfc/photon"
+	"encoding/json"
+	"log"
 	"net/http"
+	"errors"
 )
 
 type MelodyAdapter struct {
 	Instance *melody.Melody
 	handlers map[string]photon.SocketEventHandler
 	name     string
+	Clients  map[string]*photon.SocketSession
 }
 
 func Init() (*MelodyAdapter, *melody.Melody) {
@@ -18,7 +22,7 @@ func Init() (*MelodyAdapter, *melody.Melody) {
 	return &MelodyAdapter{
 		Instance: m,
 		handlers: make(map[string]photon.SocketEventHandler),
-		name:     "MelodyAdapter",
+		name:     "PhotonMelodyAdapter",
 	}, m
 }
 
@@ -28,20 +32,47 @@ func (m *MelodyAdapter) GetName() string {
 
 func (m *MelodyAdapter) Init() error {
 	m.Instance.HandleConnect(func(s *melody.Session) {
-		fmt.Println("[MelodyAdapter] Client connected:", s.Request.RemoteAddr)
+		clientID := uuid.New().String()
+		m.Clients[clientID] = &photon.SocketSession{
+			ClientID: clientID,
+			Data:     map[string]any{},
+			Instance: s,
+		}
 	})
 
 	m.Instance.HandleDisconnect(func(s *melody.Session) {
-		fmt.Println("[MelodyAdapter] Client disconnected:", s.Request.RemoteAddr)
+		for id, client := range m.Clients {
+			if client.Instance == s {
+				delete(m.Clients, id)
+				break
+			}
+		}
 	})
 
 	m.Instance.HandleMessage(func(s *melody.Session, msg []byte) {
-		if h, ok := m.handlers["message"]; ok {
-			if err := h(msg); err != nil {
-				fmt.Println("[MelodyAdapter] Handler error:", err)
+		var event photon.SocketEventMessage
+		if err := json.Unmarshal(msg, &event); err != nil {
+			log.Println("Invalid message format:", err)
+			return
+		}
+
+		var sender *photon.SocketSession
+		for _, client := range m.Clients {
+			if client.Instance == s {
+				sender = client
+				break
 			}
+		}
+
+		if sender == nil {
+			log.Println("Unknown session, ignoring message")
+			return
+		}
+
+		if handler, ok := m.handlers[event.Event]; ok && handler != nil {
+			handler(sender, &event)
 		} else {
-			s.Write(msg)
+			log.Println("No handler for event:", event.Event)
 		}
 	})
 
@@ -49,6 +80,7 @@ func (m *MelodyAdapter) Init() error {
 }
 
 func (m *MelodyAdapter) Start() error {
+	log.Println("Photon Melody Adapter started !")
 	return nil
 }
 
@@ -60,11 +92,21 @@ func (m *MelodyAdapter) On(event string, handler photon.SocketEventHandler) {
 	m.handlers[event] = handler
 }
 
-func (m *MelodyAdapter) Emit(event string, data []byte) error {
-	if event != "message" {
-		return fmt.Errorf("")
+func (m *MelodyAdapter) Emit(client *photon.SocketSession, msg *photon.SocketEventMessage) error {
+	inst, ok := client.Instance.(*melody.Session)
+	if !ok {
+		return errors.New("invalid session instance")
 	}
-	return m.Instance.Broadcast(data)
+	
+	payload, err := json.Marshal(msg)
+if err != nil {
+	log.Println("Marshal error:", err)
+	return err
+}
+
+
+	return inst.Write(payload)
+
 }
 
 func (m *MelodyAdapter) Stop() error {
