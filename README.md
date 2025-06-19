@@ -49,6 +49,31 @@ func Init() *photon.App {
 
 ```
 
+Inside `internal/your-module/routes.go`:
+```go
+
+func (m *HelloModule) InitRoute(){
+  
+  socketController := photon.InitSocketController(
+    m.App,
+    m.Module,
+  )
+  
+  socketController.On("hello",func(client *photon.SocketSession, msg *photon.SocketEventMessage){
+    fmt.Println("Client send")
+    fmt.Println(msg)
+  })
+  
+  httpController := photon.InitHttpController(
+    m.App,
+    m.Module,
+  )
+  
+  httpController.RouteSocket("/socket") // Register route for socket use 
+}
+
+```
+
 ### 2. Connect via browser
 
 ```js
