@@ -15,6 +15,7 @@ type MelodyAdapter struct {
 	handlers map[string]photon.SocketEventHandler
 	name     string
 	Clients  map[string]*photon.SocketSession
+	Rooms map[string]*photon.SocketRoom
 }
 
 func Init() (*MelodyAdapter, *melody.Melody) {
@@ -23,6 +24,7 @@ func Init() (*MelodyAdapter, *melody.Melody) {
 		Instance: m,
 		handlers: make(map[string]photon.SocketEventHandler),
 		name:     "PhotonMelodyAdapter",
+		Clients:make(map[string]*photon.SocketSession),
 	}, m
 }
 
@@ -30,8 +32,40 @@ func (m *MelodyAdapter) GetName() string {
 	return m.name
 }
 
+func (m *MelodyAdapter) CreateRoom(id string) (*photon.SocketRoom,error) {
+	if m.Rooms[id] == nil {
+		room:= &photon.SocketRoom{
+			Adapter: m,
+			RoomID: id,
+			Data:make(map[string]any),
+			Clients:make(map[string]*photon.SocketSession),
+		}
+		m.Rooms[id] = room
+		return room,nil
+	}else{
+		return nil,errors.New("Room has existed !")
+	}
+}
+
+func (m *MelodyAdapter) JoinRoom(id string, client *photon.SocketSession) error {
+	if m.Rooms[id] == nil {
+		_, err := m.CreateRoom(id)
+		if err != nil {
+			return err
+		}
+	}
+
+	m.Rooms[id].Clients[client.ClientID] = client
+	return nil
+}
+
+func (m *MelodyAdapter) GetRoom(id string) *photon.SocketRoom {
+	return m.Rooms[id]
+}
+
 func (m *MelodyAdapter) Init() error {
 	m.Instance.HandleConnect(func(s *melody.Session) {
+		log.Println("Client connection ")
 		clientID := uuid.New().String()
 		m.Clients[clientID] = &photon.SocketSession{
 			ClientID: clientID,
@@ -81,6 +115,7 @@ func (m *MelodyAdapter) Init() error {
 
 func (m *MelodyAdapter) Start() error {
 	log.Println("Photon Melody Adapter started !")
+	m.Init()
 	return nil
 }
 
