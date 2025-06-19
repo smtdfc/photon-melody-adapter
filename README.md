@@ -79,7 +79,10 @@ func (m *HelloModule) InitRoute(){
 ```js
 const socket = new WebSocket("ws://localhost:3000/ws");
 socket.onmessage = (event) => console.log("Message from server:", event.data);
-socket.send("Hello!");
+socket.send(JSON.stringify({
+      event: "hello", // event mame
+      data: { }
+}));
 ```
 
 
